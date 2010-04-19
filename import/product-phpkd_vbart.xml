@@ -1,0 +1,934 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<product productid="phpkd_vbart" active="1">
+	<title>PHPKD - Average Response Time</title>
+	<description><![CDATA[This product adds new functionality to the forum in which it can calculate & display average response time for each forum in the board, so users knows the average time they get replied.]]></description>
+	<version>4.0.100</version>
+	<url>http://tools.phpkd.net/en/producthelp/url/vbart/</url>
+	<versioncheckurl>http://tools.phpkd.net/en/producthelp/version/vbart/</versioncheckurl>
+	<dependencies>
+		<dependency dependencytype="vbulletin" minversion="3.8.0" maxversion="4.0.999" />
+	</dependencies>
+	<codes>
+		<code version="*">
+			<installcode><![CDATA[// look if we've already old versions of this product installed
+$existingprods = $vbulletin->db->query_first("SELECT * FROM " . TABLE_PREFIX . "product WHERE productid = 'average_response_time'");
+if ($existingprod['productid'])
+{
+	print_dots_start("Un-Installing old versions: \"" . $existingprod['title'] . "\"<br />Version: " . $existingprod['version'] . ", ID: " . $existingprod['productid'] . ".<br />Please Wait...", ':', 'phpkd_vbaddon_uninstall_old_info');
+	delete_product($existingprod['productid']);
+	print_dots_stop();
+}
+
+
+// ######################################################################
+// ## Debug Stuff: Begin                                               ##
+// ######################################################################
+
+$vbulletin->db->hide_errors();
+
+// Import debug data in appropriate fields
+$phpkdinfo = array(
+	'productid'       => $info['productid'],
+	'title'           => $info['title'],
+	'version'         => $info['version'],
+	'simpleversion'   => $arr['simpleversion'],
+	'revision'        => trim(substr(substr($arr['revision'], 10), 0, -1)),
+	'author'          => trim(substr(substr($arr['author'], 8), 0, -1)),
+	'vendor'          => trim(substr(substr($arr['vendor'], 8), 0, -1)),
+	'released'        => trim(substr(substr($arr['released'], 6), 0, -1)),
+	'url'             => $info['url'],
+	'versioncheckurl' => $info['versioncheckurl'],
+	'extradetails'    => str_replace('url', 'info', $info['url']),
+	'installdateline' => TIMENOW
+);
+
+if ($vbulletin->options['phpkd_free40_data'])
+{
+	$holder = unserialize($vbulletin->options['phpkd_free40_data']);
+	$holder[$phpkdinfo['productid']] = $phpkdinfo;
+	$data = $vbulletin->db->escape_string(serialize($holder));
+	$vbulletin->db->query_write("
+		UPDATE " . TABLE_PREFIX . "setting
+		SET value = '$data'
+		WHERE varname = 'phpkd_free40_data'
+	");
+}
+else
+{
+	$holder[$phpkdinfo['productid']] = $phpkdinfo;
+	$data = $vbulletin->db->escape_string(serialize($holder));
+
+	$vbulletin->db->query_write("
+		REPLACE INTO " . TABLE_PREFIX . "setting
+			(varname, grouptitle, value, defaultvalue, datatype, optioncode, displayorder, advanced, volatile, validationcode, blacklist, product)
+		VALUES
+			('phpkd_free40_data', 'version', '$data', '', 'free', '', '40100', '0', '1', '', '0', 'phpkd_framework')
+	");
+
+	$vbulletin->db->query_write("
+		REPLACE INTO " . TABLE_PREFIX . "phrase
+			(languageid, fieldname, varname, text, product, username, dateline, version)
+		VALUES
+			('-1', 'vbsettings', 'setting_phpkd_free40_data_title', 'PHP KingDom (PHPKD) Free Products\' Data (4.0.x) [Sensitive]', 'phpkd_framework', '" . $vbulletin->db->escape_string($vbulletin->userinfo['username']) . "', " . TIMENOW . ", '4.0.100'),
+			('-1', 'vbsettings', 'setting_phpkd_free40_data_desc', 'PHP KingDom (PHPKD) Free Products\' Data used for debugging issues. <strong>[Sensitive Data, DON\'T ALTER]</strong>.', 'phpkd_framework', '" . $vbulletin->db->escape_string($vbulletin->userinfo['username']) . "', " . TIMENOW . ", '4.0.100')
+		");
+}
+
+print_dots_start("Installing: \"" . $phpkdinfo['title'] . "\"<br />Version: " . $phpkdinfo['version'] . ", Revision: " . $phpkdinfo['revision'] . ", Released: " . $phpkdinfo['released'] . ".<br />Thanks for choosing PHP KingDom's Products. If you need any help or wish to try any other products we have, just give us a visit at <a href=\"http://www.phpkd.net\" target=\"_blank\">www.phpkd.net</a>. You are always welcomed.<br />Please Wait...", ':', 'phpkd_vbaddon_install_info');
+print_dots_stop();
+$vbulletin->db->show_errors();
+
+// ######################################################################
+// ## Debug Stuff: End                                                 ##
+// ######################################################################]]></installcode>
+			<uninstallcode><![CDATA[// ######################################################################
+// ## Debug Stuff: Begin                                               ##
+// ######################################################################
+
+$vbulletin->db->hide_errors();
+if ($vbulletin->options['phpkd_free40_data'])
+{
+	$holder = unserialize($vbulletin->options['phpkd_free40_data']);
+
+	if ($holder[$vbulletin->db->escape_string($vbulletin->GPC['productid'])])
+	{
+		$phpkdinfo = $holder[$vbulletin->db->escape_string($vbulletin->GPC['productid'])];
+		print_dots_start("Un-installing: \"" . $phpkdinfo['title'] . "\"<br />Version: " . $phpkdinfo['version'] . ", Revision: " . $phpkdinfo['revision'] . ", Released: " . $phpkdinfo['released'] . ".<br />We are sad to see you un-installing '" . $phpkdinfo['title'] . "'. Please if there is any thing we can do to keep you using this software product, just tell us at <a href=\"http://www.phpkd.net\" target=\"_blank\">www.phpkd.net</a>.<br />Please Wait...", ':', 'phpkd_vbaddon_uninstall_info');
+		unset($holder[$vbulletin->db->escape_string($vbulletin->GPC['productid'])]);
+	}
+
+	if (is_array($holder) AND !empty($holder))
+	{
+		$data = $vbulletin->db->escape_string(serialize($holder));
+		$vbulletin->db->query_write("
+			UPDATE " . TABLE_PREFIX . "setting SET
+			value = '$data'
+			WHERE varname = 'phpkd_free40_data'
+		");
+	}
+	else
+	{
+		// delete phrases
+		$vbulletin->db->query_write("
+			DELETE FROM " . TABLE_PREFIX . "phrase
+			WHERE languageid IN (-1, 0) AND
+				fieldname = 'vbsettings' AND
+				varname IN ('setting_phpkd_free40_data_title', 'setting_phpkd_free40_data_desc')
+		");
+
+		// delete setting
+		$vbulletin->db->query_write("DELETE FROM " . TABLE_PREFIX . "setting WHERE varname = 'phpkd_free40_data'");
+	}
+}
+$vbulletin->db->show_errors();
+
+// ######################################################################
+// ## Debug Stuff: End                                                 ##
+// ######################################################################]]></uninstallcode>
+		</code>
+		<code version="4.0.100">
+			<installcode><![CDATA[$vbulletin->db->hide_errors();
+require_once(DIR . '/includes/class_dbalter.php');
+$db_alter = new vB_Database_Alter_MySQL($vbulletin->db);
+
+if ($db_alter->fetch_table_info('forum'))
+{
+	$db_alter->add_field(array(
+		'name'       => 'phpkd_vbart',
+		'type'       => 'int',
+		'attributes' => 'unsigned',
+		'default'    => '0',
+	));
+}
+
+$vbulletin->db->show_errors();]]></installcode>
+			<uninstallcode><![CDATA[$vbulletin->db->hide_errors();
+require_once(DIR . '/includes/class_dbalter.php');
+$db_alter = new vB_Database_Alter_MySQL($vbulletin->db);
+
+if ($db_alter->fetch_table_info('forum'))
+{
+	$db_alter->drop_field('phpkd_vbart');
+}
+
+$vbulletin->db->show_errors();]]></uninstallcode>
+		</code>
+	</codes>
+	<templates>
+		<template name="phpkd_vbart_38x_display_fdhr" templatetype="template" date="1271480438" username="PHPKD" version="4.0.100"><![CDATA[<tbody>
+	<tr>
+		<td class="alt2" colspan="8">
+			$phpkd_vbart_forumbit[phrase]
+			<br />
+			$vbphrase[phpkd_vbart_note]
+		</td>
+	</tr>
+</tbody>]]></template>
+		<template name="phpkd_vbart_38x_display_fhfb" templatetype="template" date="1271457071" username="PHPKD" version="4.0.100"><![CDATA[<div class="smallfont">
+	$phpkd_vbart_forumbit[phrase]
+</div>]]></template>
+		<template name="phpkd_vbart_38x_display_fhst" templatetype="template" date="1271480493" username="PHPKD" version="4.0.100"><![CDATA[<div class="smallfont">
+	$phpkd_vbart_forumbit[phrase]
+</div>]]></template>
+		<template name="phpkd_vbart_40x_display_fdhr" templatetype="template" date="1271480444" username="PHPKD" version="4.0.100"><![CDATA[<div class="above_threadlist_controls">
+	<div>
+	<ul class="popupgroup forumdisplaypopups">
+		<li class="popupmenu nohovermenu">
+			<h6>{vb:raw phpkd_vbart_forumbit.phrase}</h6>
+			<h6>{vb:rawphrase phpkd_vbart_note}</h6>
+		</li>
+	</ul>
+	</div>
+</div>]]></template>
+		<template name="phpkd_vbart_40x_display_fhfb" templatetype="template" date="1271455011" username="PHPKD" version="4.0.100"><![CDATA[<p class="forumdescription">
+	{vb:raw phpkd_vbart_forumbit.phrase}
+</p>]]></template>
+		<template name="phpkd_vbart_40x_display_fhst" templatetype="template" date="1271462446" username="PHPKD" version="4.0.100"><![CDATA[<p>{vb:raw phpkd_vbart_forumbit.phrase}</p>]]></template>
+	</templates>
+	<stylevardfns>
+	</stylevardfns>
+	<stylevars>
+	</stylevars>
+	<plugins>
+		<plugin active="1" executionorder="5">
+			<title><![CDATA[PHPKD - Average Response Time [ Print Admin Options ]]]></title>
+			<hookname>admin_options_print</hookname>
+			<phpcode><![CDATA[if ($setting['optioncode'] == 'phpkd_vbart_styles')
+{
+	$handled = TRUE;
+	$options = fetch_style_title_options_array();
+
+	if (is_array($options) AND !empty($options))
+	{
+		print_select_row($description, $name . '[]', array(0 => $vbphrase['phpkd_vbart_select_styles']) + $options, unserialize($setting['value']), FALSE, 5, TRUE);
+	}
+}]]></phpcode>
+		</plugin>
+		<plugin active="1" executionorder="5">
+			<title><![CDATA[PHPKD - Average Response Time [ Process Admin Options ]]]></title>
+			<hookname>admin_options_processing</hookname>
+			<phpcode><![CDATA[if ($oldsetting['optioncode'] == 'phpkd_vbart_styles')
+{
+	if (count($settings["$oldsetting[varname]"]) > 1 AND $settings["$oldsetting[varname]"][0] == 0)
+	{
+		unset($settings["$oldsetting[varname]"][0]);
+	}
+	else if (count($settings["$oldsetting[varname]"]) < 1)
+	{
+		$settings["$oldsetting[varname]"][0] = 0;
+	}
+
+	$settings["$oldsetting[varname]"] = serialize($settings["$oldsetting[varname]"]);
+}]]></phpcode>
+		</plugin>
+		<plugin active="1" executionorder="5">
+			<title><![CDATA[PHPKD - Average Response Time [ Cache Templates ]]]></title>
+			<hookname>cache_templates</hookname>
+			<phpcode><![CDATA[if ($vbulletin->options['phpkd_vbart_active'])
+{
+	$show['phpkd_vbart_active']      = true;
+	$phpkd_vbart_inex_users_ids      = @explode(',', trim($vbulletin->options['phpkd_vbart_inex_users_ids']));
+	$phpkd_vbart_inex_usergroups_ids = @explode(',', trim($vbulletin->options['phpkd_vbart_inex_usergroups_ids']));
+	$phpkd_vbart_inex_forums_ids     = @explode(',', trim($vbulletin->options['phpkd_vbart_inex_forums_ids']));
+	$phpkd_vbart_styleids            = @unserialize(trim($vbulletin->options['phpkd_vbart_styleids']));
+	unset($phpkd_vbart_styleids[0]);
+
+	switch ($vbulletin->options['phpkd_vbart_inex_users'])
+	{
+		case 1:
+			if (is_array($phpkd_vbart_inex_users_ids) AND !empty($phpkd_vbart_inex_users_ids) AND !in_array($vbulletin->userinfo['userid'], $phpkd_vbart_inex_users_ids))
+			{
+				$show['phpkd_vbart_active']  = false;
+			}
+			break;
+		case 2:
+			if (is_array($phpkd_vbart_inex_users_ids) AND !empty($phpkd_vbart_inex_users_ids) AND in_array($vbulletin->userinfo['userid'], $phpkd_vbart_inex_users_ids))
+			{
+				$show['phpkd_vbart_active']  = false;
+			}
+			break;
+	}
+
+
+	switch ($vbulletin->options['phpkd_vbart_inex_usergroups'])
+	{
+		case 1:
+			if (is_array($phpkd_vbart_inex_usergroups_ids) AND !empty($phpkd_vbart_inex_usergroups_ids) AND !in_array($vbulletin->userinfo['usergroupid'], $phpkd_vbart_inex_usergroups_ids))
+			{
+				$show['phpkd_vbart_active']  = false;
+			}
+			break;
+		case 2:
+			if (is_array($phpkd_vbart_inex_usergroups_ids) AND !empty($phpkd_vbart_inex_usergroups_ids) AND in_array($vbulletin->userinfo['usergroupid'], $phpkd_vbart_inex_usergroups_ids))
+			{
+				$show['phpkd_vbart_active']  = false;
+			}
+			break;
+	}
+
+
+	switch ($vbulletin->options['phpkd_vbart_inex_forums'])
+	{
+		case 1:
+			if (is_array($phpkd_vbart_inex_forums_ids) AND !empty($phpkd_vbart_inex_forums_ids) AND !in_array($foruminfo['forumid'], $phpkd_vbart_inex_forums_ids))
+			{
+				$show['phpkd_vbart_active']  = FALSE;
+			}
+			break;
+		case 2:
+			if (is_array($phpkd_vbart_inex_forums_ids) AND !empty($phpkd_vbart_inex_forums_ids) AND in_array($foruminfo['forumid'], $phpkd_vbart_inex_forums_ids))
+			{
+				$show['phpkd_vbart_active']  = FALSE;
+			}
+			break;
+	}
+
+
+	if (is_array($phpkd_vbart_styleids) AND !empty($phpkd_vbart_styleids) AND !in_array($style['styleid'], $phpkd_vbart_styleids))
+	{
+		$show['phpkd_vbart_active']  = false;
+	}
+
+
+	if ($show['phpkd_vbart_active'])
+	{
+		// Prepare Debiugging Data!
+		if (!$phpkd_vbart AND $phpkd_vbart_data = @unserialize(trim($vbulletin->options['phpkd_free40_data'])))
+		{
+			// vBulletin 3.8.x/4.0.x Compatibility!
+			if (substr(SIMPLE_VERSION, 0, 1) >= 4)
+			{
+				global $phpkd_vbart;
+			}
+
+			$phpkd_vbart = $phpkd_vbart_data['phpkd_vbart'];
+		}
+
+
+		// vBulletin 3.8.x/4.0.x Compatibility!
+		if (substr(SIMPLE_VERSION, 0, 1) >= 4)
+		{
+			if ($vbulletin->options['phpkd_vbart_display_fhfb'])
+			{
+				$cache[] = 'phpkd_vbart_40x_display_fhfb';
+			}
+
+			if ($vbulletin->options['phpkd_vbart_display_fhst'])
+			{
+				$cache[] = 'phpkd_vbart_40x_display_fhst';
+			}
+
+			if ($vbulletin->options['phpkd_vbart_display_fdhr'])
+			{
+				$cache[] = 'phpkd_vbart_40x_display_fdhr';
+			}
+
+			if ($vbulletin->options['phpkd_vbart_display_fdfr'])
+			{
+				$cache[] = 'phpkd_vbart_40x_display_fdfr';
+			}
+		}
+		else
+		{
+			if ($vbulletin->options['phpkd_vbart_display_fhfb'])
+			{
+				$globaltemplates[] = 'phpkd_vbart_38x_display_fhfb';
+			}
+
+			if ($vbulletin->options['phpkd_vbart_display_fhst'])
+			{
+				$globaltemplates[] = 'phpkd_vbart_38x_display_fhst';
+			}
+
+			if ($vbulletin->options['phpkd_vbart_display_fdhr'])
+			{
+				$globaltemplates[] = 'phpkd_vbart_38x_display_fdhr';
+			}
+
+			if ($vbulletin->options['phpkd_vbart_display_fdfr'])
+			{
+				$globaltemplates[] = 'phpkd_vbart_38x_display_fdfr';
+			}
+		}
+	}
+}]]></phpcode>
+		</plugin>
+		<plugin active="1" executionorder="1">
+			<title><![CDATA[PHPKD - Average Response Time [ Forumbit ]]]></title>
+			<hookname>forumbit_display</hookname>
+			<phpcode><![CDATA[if ($show['phpkd_vbart_active'] AND $vbulletin->options['phpkd_vbart_display_fhfb'] AND ($forum['options'] & $vbulletin->bf_misc_forumoptions['active']) AND ($forum['options'] & $vbulletin->bf_misc_forumoptions['allowposting']) AND ($forum['options'] & $vbulletin->bf_misc_forumoptions['cancontainthreads']))
+{
+	// vBulletin 3.8.x/4.0.x Compatibility!
+	if (substr(SIMPLE_VERSION, 0, 1) >= 4)
+	{
+		// Unregister the $phpkd_vbart_template variable that's registered from the previous forumbit!!
+		vB_Template::preRegister("forumhome_forumbit_level$depth$tempext", array('phpkd_vbart_template' => ''));
+	}
+
+
+	if ($forum['replycount'] > $forum['threadcount'])
+	{
+		$phpkd_vbart_forumbit = array();
+		$phpkd_vbart_forumbit['query'] = $vbulletin->db->query_read("
+			SELECT thread.dateline AS tdateline, post.dateline AS pdateline, MIN(post.dateline)
+			FROM " . TABLE_PREFIX . "thread AS thread
+			LEFT JOIN " . TABLE_PREFIX . "post AS post ON(thread.threadid = post.threadid)
+			WHERE thread.forumid = $forumid
+				AND post.postid != thread.firstpostid
+				AND thread.open = 1
+				AND thread.visible = 1
+				AND thread.replycount >= 1
+				AND post.visible = 1
+			GROUP BY post.threadid
+			ORDER BY tdateline DESC, pdateline ASC
+			" . (($vbulletin->options['phpkd_vbart_limit']) ? "LIMIT " . $vbulletin->options['phpkd_vbart_limit'] : "") . "
+		");
+
+		while ($phpkd_vbart_item = $vbulletin->db->fetch_array($phpkd_vbart_forumbit['query']))
+		{
+			$phpkd_vbart_forumbit['array'][] = $phpkd_vbart_item['pdateline'] - $phpkd_vbart_item['tdateline'];
+		}
+		$vbulletin->db->free_result($phpkd_vbart_forumbit['query']);
+
+		$phpkd_vbart_forumbit['count'] = count($phpkd_vbart_forumbit['array']);
+		if ($phpkd_vbart_forumbit['count'])
+		{
+			if ($vbulletin->options['phpkd_vbart_mode'])
+			{
+				sort($phpkd_vbart_forumbit['array'], SORT_NUMERIC);
+
+				if (($phpkd_vbart_forumbit['count'] % 2) == 0)
+				{
+					// EVEN
+					$phpkd_vbart_forumbit['result'] = (($phpkd_vbart_forumbit['array'][floor($phpkd_vbart_forumbit['count'] / 2) - 1] + $phpkd_vbart_forumbit['array'][floor($phpkd_vbart_forumbit['count'] / 2)]) / 2);
+				}
+				else
+				{
+					// ODD
+					$phpkd_vbart_forumbit['result'] = $phpkd_vbart_forumbit['array'][floor($phpkd_vbart_forumbit['count'] / 2)];
+				}
+			}
+			else
+			{
+				$phpkd_vbart_forumbit['result'] = (@array_sum($phpkd_vbart_forumbit['array']) / $phpkd_vbart_forumbit['count']);
+			}
+
+
+			if ($phpkd_vbart_forumbit['result'])
+			{
+				if (!isset($phpkd_vbart_total))
+				{
+					global $phpkd_vbart_total;
+					$phpkd_vbart_total = array('array' => array(), 'count' => 0);
+				}
+				$phpkd_vbart_total['array'] = @array_merge($phpkd_vbart_total['array'], $phpkd_vbart_forumbit['array']);
+				$phpkd_vbart_total['count'] += $phpkd_vbart_forumbit['count'];
+
+
+				if ($phpkd_vbart_forumbit['result'] < 60)
+				{
+					$phpkd_vbart_forumbit['second'] = intval($phpkd_vbart_forumbit['result']) . " " . $vbphrase['phpkd_vbart_second'];
+					$phpkd_vbart_forumbit['phrase'] = construct_phrase($vbphrase['phpkd_vbart_display_fdfr_second'], $phpkd_vbart_forumbit['second']);
+				}
+				else if ($phpkd_vbart_forumbit['result'] < 3600)
+				{
+					$phpkd_vbart_forumbit['minute'] = intval($phpkd_vbart_forumbit['result'] / 60) . " " . $vbphrase['phpkd_vbart_minute'];
+					$phpkd_vbart_forumbit['second'] = intval($phpkd_vbart_forumbit['result'] % 60) . " " . $vbphrase['phpkd_vbart_second'];
+					$phpkd_vbart_forumbit['phrase'] = construct_phrase($vbphrase['phpkd_vbart_display_fdfr_minute'], $phpkd_vbart_forumbit['minute'], $phpkd_vbart_forumbit['second']);
+				}
+				else if ($phpkd_vbart_forumbit['result'] < 86400)
+				{
+					$phpkd_vbart_forumbit['hour']   = intval($phpkd_vbart_forumbit['result'] / 3600) . " " . $vbphrase['phpkd_vbart_hour'];
+					$phpkd_vbart_forumbit['minute'] = intval(($phpkd_vbart_forumbit['result'] % 3600) / 60) . " " . $vbphrase['phpkd_vbart_minute'];
+					$phpkd_vbart_forumbit['second'] = intval(($phpkd_vbart_forumbit['result'] % 3600) % 60) . " " . $vbphrase['phpkd_vbart_second'];
+					$phpkd_vbart_forumbit['phrase'] = construct_phrase($vbphrase['phpkd_vbart_display_fdfr_hour'], $phpkd_vbart_forumbit['hour'], $phpkd_vbart_forumbit['minute'], $phpkd_vbart_forumbit['second']);
+				}
+				else if ($phpkd_vbart_forumbit['result'] < 604800)
+				{
+					$phpkd_vbart_forumbit['day']    = intval($phpkd_vbart_forumbit['result'] / 86400) . " " . $vbphrase['phpkd_vbart_day'];
+					$phpkd_vbart_forumbit['hour']   = intval(($phpkd_vbart_forumbit['result'] % 86400) / 3600) . " " . $vbphrase['phpkd_vbart_hour'];
+					$phpkd_vbart_forumbit['minute'] = intval((($phpkd_vbart_forumbit['result'] % 86400) % 3600) / 60) . " " . $vbphrase['phpkd_vbart_minute'];
+					$phpkd_vbart_forumbit['second'] = intval((($phpkd_vbart_forumbit['result'] % 86400) % 3600) % 60) . " " . $vbphrase['phpkd_vbart_second'];
+					$phpkd_vbart_forumbit['phrase'] = construct_phrase($vbphrase['phpkd_vbart_display_fdfr_day'], $phpkd_vbart_forumbit['day'], $phpkd_vbart_forumbit['hour'], $phpkd_vbart_forumbit['minute'], $phpkd_vbart_forumbit['second']);
+				}
+				else if ($phpkd_vbart_forumbit['result'] < 2592000)
+				{
+					$phpkd_vbart_forumbit['week']   = intval($phpkd_vbart_forumbit['result'] / 604800) . " " . $vbphrase['phpkd_vbart_week'];
+					$phpkd_vbart_forumbit['day']    = intval(($phpkd_vbart_forumbit['result'] % 604800) / 86400) . " " . $vbphrase['phpkd_vbart_day'];
+					$phpkd_vbart_forumbit['hour']   = intval((($phpkd_vbart_forumbit['result'] % 604800) % 86400) / 3600) . " " . $vbphrase['phpkd_vbart_hour'];
+					$phpkd_vbart_forumbit['minute'] = intval(((($phpkd_vbart_forumbit['result'] % 604800) % 86400) % 3600) / 60) . " " . $vbphrase['phpkd_vbart_minute'];
+					$phpkd_vbart_forumbit['second'] = intval(((($phpkd_vbart_forumbit['result'] % 604800) % 86400) % 3600) % 60) . " " . $vbphrase['phpkd_vbart_second'];
+					$phpkd_vbart_forumbit['phrase'] = construct_phrase($vbphrase['phpkd_vbart_display_fdfr_week'], $phpkd_vbart_forumbit['week'], $phpkd_vbart_forumbit['day'], $phpkd_vbart_forumbit['hour'], $phpkd_vbart_forumbit['minute'], $phpkd_vbart_forumbit['second']);
+				}
+				else if ($phpkd_vbart_forumbit['result'] < 31536000)
+				{
+					$phpkd_vbart_forumbit['month']  = intval($phpkd_vbart_forumbit['result'] / 2592000) . " " . $vbphrase['phpkd_vbart_month'];
+					$phpkd_vbart_forumbit['week']   = intval(($phpkd_vbart_forumbit['result'] % 2592000) / 604800) . " " . $vbphrase['phpkd_vbart_week'];
+					$phpkd_vbart_forumbit['day']    = intval((($phpkd_vbart_forumbit['result'] % 2592000) % 604800) / 86400) . " " . $vbphrase['phpkd_vbart_day'];
+					$phpkd_vbart_forumbit['hour']   = intval(((($phpkd_vbart_forumbit['result'] % 2592000) % 604800) % 86400) / 3600) . " " . $vbphrase['phpkd_vbart_hour'];
+					$phpkd_vbart_forumbit['minute'] = intval((((($phpkd_vbart_forumbit['result'] % 2592000) % 604800) % 86400) % 3600) / 60) . " " . $vbphrase['phpkd_vbart_minute'];
+					$phpkd_vbart_forumbit['second'] = intval((((($phpkd_vbart_forumbit['result'] % 2592000) % 604800) % 86400) % 3600) % 60) . " " . $vbphrase['phpkd_vbart_second'];
+					$phpkd_vbart_forumbit['phrase'] = construct_phrase($vbphrase['phpkd_vbart_display_fdfr_month'], $phpkd_vbart_forumbit['month'], $phpkd_vbart_forumbit['week'], $phpkd_vbart_forumbit['day'], $phpkd_vbart_forumbit['hour'], $phpkd_vbart_forumbit['minute'], $phpkd_vbart_forumbit['second']);
+				}
+				else
+				{
+					$phpkd_vbart_forumbit['year']   = intval($phpkd_vbart_forumbit['result'] / 31536000) . " " . $vbphrase['phpkd_vbart_year'];
+					$phpkd_vbart_forumbit['month']  = intval(($phpkd_vbart_forumbit['result'] % 31536000) / 2592000) . " " . $vbphrase['phpkd_vbart_month'];
+					$phpkd_vbart_forumbit['week']   = intval((($phpkd_vbart_forumbit['result'] % 31536000) % 2592000) / 604800) . " " . $vbphrase['phpkd_vbart_week'];
+					$phpkd_vbart_forumbit['day']    = intval(((($phpkd_vbart_forumbit['result'] % 31536000) % 2592000) % 604800) / 86400) . " " . $vbphrase['phpkd_vbart_day'];
+					$phpkd_vbart_forumbit['hour']   = intval((((($phpkd_vbart_forumbit['result'] % 31536000) % 2592000) % 604800) % 86400) / 3600) . " " . $vbphrase['phpkd_vbart_hour'];
+					$phpkd_vbart_forumbit['minute'] = intval(((((($phpkd_vbart_forumbit['result'] % 31536000) % 2592000) % 604800) % 86400) % 3600) / 60) . " " . $vbphrase['phpkd_vbart_minute'];
+					$phpkd_vbart_forumbit['second'] = intval(((((($phpkd_vbart_forumbit['result'] % 31536000) % 2592000) % 604800) % 86400) % 3600) % 60) . " " . $vbphrase['phpkd_vbart_second'];
+					$phpkd_vbart_forumbit['phrase'] = construct_phrase($vbphrase['phpkd_vbart_display_fdfr_year'], $phpkd_vbart_forumbit['year'], $phpkd_vbart_forumbit['month'], $phpkd_vbart_forumbit['week'], $phpkd_vbart_forumbit['day'], $phpkd_vbart_forumbit['hour'], $phpkd_vbart_forumbit['minute'], $phpkd_vbart_forumbit['second']);
+				}
+
+
+				// vBulletin 3.8.x/4.0.x Compatibility!
+				if (substr(SIMPLE_VERSION, 0, 1) >= 4)
+				{
+					$templater = vB_Template::create('phpkd_vbart_40x_display_fhfb');
+					$templater->register('phpkd_vbart_forumbit', $phpkd_vbart_forumbit);
+					vB_Template::preRegister("forumhome_forumbit_level$depth$tempext", array('phpkd_vbart_template' => $templater->render()));
+					$vbulletin->templatecache["forumhome_forumbit_level$depth$tempext"] = str_replace('\' . $forum[\'description\'] . \'', '\' . $phpkd_vbart_template . \'', $vbulletin->templatecache["forumhome_forumbit_level$depth$tempext"]);
+					// $vbulletin->templatecache["forumhome_forumbit_level$depth$tempext"] = str_replace('<!-- phpkd_vbart -->', '\' . $phpkd_vbart_template . \'', $vbulletin->templatecache["forumhome_forumbit_level$depth$tempext"]);
+				}
+				else
+				{
+					eval('$phpkd_vbart_template = "' . fetch_template('phpkd_vbart_38x_display_fhfb') . '";');
+					$vbulletin->templatecache["forumhome_forumbit_level$depth$tempext"] = str_replace('<!-- phpkd_vbart -->', '$phpkd_vbart_template', $vbulletin->templatecache["forumhome_forumbit_level$depth$tempext"]);
+				}
+
+				unset($phpkd_vbart_forumbit);
+			}
+		}
+	}
+}]]></phpcode>
+		</plugin>
+		<plugin active="1" executionorder="5">
+			<title><![CDATA[PHPKD - Average Response Time [ Forumdisplay ]]]></title>
+			<hookname>forumdisplay_complete</hookname>
+			<phpcode><![CDATA[if ($show['phpkd_vbart_active'] AND $vbulletin->options['phpkd_vbart_display_fdhr'] AND ($foruminfo['options'] & $vbulletin->bf_misc_forumoptions['active']) AND ($foruminfo['options'] & $vbulletin->bf_misc_forumoptions['allowposting']) AND ($foruminfo['options'] & $vbulletin->bf_misc_forumoptions['cancontainthreads']))
+{
+	if ($totalthreads)
+	{
+		$phpkd_vbart_forumbit = array();
+		$phpkd_vbart_forumbit['query'] = $vbulletin->db->query_read("
+			SELECT thread.dateline AS tdateline, post.dateline AS pdateline, MIN(post.dateline)
+			FROM " . TABLE_PREFIX . "thread AS thread
+			LEFT JOIN " . TABLE_PREFIX . "post AS post ON(thread.threadid = post.threadid)
+			WHERE thread.forumid = $forumid
+				AND post.postid != thread.firstpostid
+				AND thread.open = 1
+				AND thread.visible = 1
+				AND thread.replycount >= 1
+				AND post.visible = 1
+			GROUP BY post.threadid
+			ORDER BY tdateline DESC, pdateline ASC
+			" . (($vbulletin->options['phpkd_vbart_limit']) ? "LIMIT " . $vbulletin->options['phpkd_vbart_limit'] : "") . "
+		");
+
+		while ($phpkd_vbart_item = $vbulletin->db->fetch_array($phpkd_vbart_forumbit['query']))
+		{
+			$phpkd_vbart_forumbit['array'][] = $phpkd_vbart_item['pdateline'] - $phpkd_vbart_item['tdateline'];
+		}
+		$vbulletin->db->free_result($phpkd_vbart_forumbit['query']);
+
+		$phpkd_vbart_forumbit['count'] = count($phpkd_vbart_forumbit['array']);
+		if ($phpkd_vbart_forumbit['count'])
+		{
+			if ($vbulletin->options['phpkd_vbart_mode'])
+			{
+				sort($phpkd_vbart_forumbit['array'], SORT_NUMERIC);
+
+				if (($phpkd_vbart_forumbit['count'] % 2) == 0)
+				{
+					// EVEN
+					$phpkd_vbart_forumbit['result'] = (($phpkd_vbart_forumbit['array'][floor($phpkd_vbart_forumbit['count'] / 2) - 1] + $phpkd_vbart_forumbit['array'][floor($phpkd_vbart_forumbit['count'] / 2)]) / 2);
+				}
+				else
+				{
+					// ODD
+					$phpkd_vbart_forumbit['result'] = $phpkd_vbart_forumbit['array'][floor($phpkd_vbart_forumbit['count'] / 2)];
+				}
+			}
+			else
+			{
+				$phpkd_vbart_forumbit['result'] = (@array_sum($phpkd_vbart_forumbit['array']) / $phpkd_vbart_forumbit['count']);
+			}
+
+
+			if ($phpkd_vbart_forumbit['result'])
+			{
+				if ($phpkd_vbart_forumbit['result'] < 60)
+				{
+					$phpkd_vbart_forumbit['second'] = intval($phpkd_vbart_forumbit['result']) . " " . $vbphrase['phpkd_vbart_second'];
+					$phpkd_vbart_forumbit['phrase'] = construct_phrase($vbphrase['phpkd_vbart_display_fdfr_second'], $phpkd_vbart_forumbit['second']);
+				}
+				else if ($phpkd_vbart_forumbit['result'] < 3600)
+				{
+					$phpkd_vbart_forumbit['minute'] = intval($phpkd_vbart_forumbit['result'] / 60) . " " . $vbphrase['phpkd_vbart_minute'];
+					$phpkd_vbart_forumbit['second'] = intval($phpkd_vbart_forumbit['result'] % 60) . " " . $vbphrase['phpkd_vbart_second'];
+					$phpkd_vbart_forumbit['phrase'] = construct_phrase($vbphrase['phpkd_vbart_display_fdfr_minute'], $phpkd_vbart_forumbit['minute'], $phpkd_vbart_forumbit['second']);
+				}
+				else if ($phpkd_vbart_forumbit['result'] < 86400)
+				{
+					$phpkd_vbart_forumbit['hour']   = intval($phpkd_vbart_forumbit['result'] / 3600) . " " . $vbphrase['phpkd_vbart_hour'];
+					$phpkd_vbart_forumbit['minute'] = intval(($phpkd_vbart_forumbit['result'] % 3600) / 60) . " " . $vbphrase['phpkd_vbart_minute'];
+					$phpkd_vbart_forumbit['second'] = intval(($phpkd_vbart_forumbit['result'] % 3600) % 60) . " " . $vbphrase['phpkd_vbart_second'];
+					$phpkd_vbart_forumbit['phrase'] = construct_phrase($vbphrase['phpkd_vbart_display_fdfr_hour'], $phpkd_vbart_forumbit['hour'], $phpkd_vbart_forumbit['minute'], $phpkd_vbart_forumbit['second']);
+				}
+				else if ($phpkd_vbart_forumbit['result'] < 604800)
+				{
+					$phpkd_vbart_forumbit['day']    = intval($phpkd_vbart_forumbit['result'] / 86400) . " " . $vbphrase['phpkd_vbart_day'];
+					$phpkd_vbart_forumbit['hour']   = intval(($phpkd_vbart_forumbit['result'] % 86400) / 3600) . " " . $vbphrase['phpkd_vbart_hour'];
+					$phpkd_vbart_forumbit['minute'] = intval((($phpkd_vbart_forumbit['result'] % 86400) % 3600) / 60) . " " . $vbphrase['phpkd_vbart_minute'];
+					$phpkd_vbart_forumbit['second'] = intval((($phpkd_vbart_forumbit['result'] % 86400) % 3600) % 60) . " " . $vbphrase['phpkd_vbart_second'];
+					$phpkd_vbart_forumbit['phrase'] = construct_phrase($vbphrase['phpkd_vbart_display_fdfr_day'], $phpkd_vbart_forumbit['day'], $phpkd_vbart_forumbit['hour'], $phpkd_vbart_forumbit['minute'], $phpkd_vbart_forumbit['second']);
+				}
+				else if ($phpkd_vbart_forumbit['result'] < 2592000)
+				{
+					$phpkd_vbart_forumbit['week']   = intval($phpkd_vbart_forumbit['result'] / 604800) . " " . $vbphrase['phpkd_vbart_week'];
+					$phpkd_vbart_forumbit['day']    = intval(($phpkd_vbart_forumbit['result'] % 604800) / 86400) . " " . $vbphrase['phpkd_vbart_day'];
+					$phpkd_vbart_forumbit['hour']   = intval((($phpkd_vbart_forumbit['result'] % 604800) % 86400) / 3600) . " " . $vbphrase['phpkd_vbart_hour'];
+					$phpkd_vbart_forumbit['minute'] = intval(((($phpkd_vbart_forumbit['result'] % 604800) % 86400) % 3600) / 60) . " " . $vbphrase['phpkd_vbart_minute'];
+					$phpkd_vbart_forumbit['second'] = intval(((($phpkd_vbart_forumbit['result'] % 604800) % 86400) % 3600) % 60) . " " . $vbphrase['phpkd_vbart_second'];
+					$phpkd_vbart_forumbit['phrase'] = construct_phrase($vbphrase['phpkd_vbart_display_fdfr_week'], $phpkd_vbart_forumbit['week'], $phpkd_vbart_forumbit['day'], $phpkd_vbart_forumbit['hour'], $phpkd_vbart_forumbit['minute'], $phpkd_vbart_forumbit['second']);
+				}
+				else if ($phpkd_vbart_forumbit['result'] < 31536000)
+				{
+					$phpkd_vbart_forumbit['month']  = intval($phpkd_vbart_forumbit['result'] / 2592000) . " " . $vbphrase['phpkd_vbart_month'];
+					$phpkd_vbart_forumbit['week']   = intval(($phpkd_vbart_forumbit['result'] % 2592000) / 604800) . " " . $vbphrase['phpkd_vbart_week'];
+					$phpkd_vbart_forumbit['day']    = intval((($phpkd_vbart_forumbit['result'] % 2592000) % 604800) / 86400) . " " . $vbphrase['phpkd_vbart_day'];
+					$phpkd_vbart_forumbit['hour']   = intval(((($phpkd_vbart_forumbit['result'] % 2592000) % 604800) % 86400) / 3600) . " " . $vbphrase['phpkd_vbart_hour'];
+					$phpkd_vbart_forumbit['minute'] = intval((((($phpkd_vbart_forumbit['result'] % 2592000) % 604800) % 86400) % 3600) / 60) . " " . $vbphrase['phpkd_vbart_minute'];
+					$phpkd_vbart_forumbit['second'] = intval((((($phpkd_vbart_forumbit['result'] % 2592000) % 604800) % 86400) % 3600) % 60) . " " . $vbphrase['phpkd_vbart_second'];
+					$phpkd_vbart_forumbit['phrase'] = construct_phrase($vbphrase['phpkd_vbart_display_fdfr_month'], $phpkd_vbart_forumbit['month'], $phpkd_vbart_forumbit['week'], $phpkd_vbart_forumbit['day'], $phpkd_vbart_forumbit['hour'], $phpkd_vbart_forumbit['minute'], $phpkd_vbart_forumbit['second']);
+				}
+				else
+				{
+					$phpkd_vbart_forumbit['year']   = intval($phpkd_vbart_forumbit['result'] / 31536000) . " " . $vbphrase['phpkd_vbart_year'];
+					$phpkd_vbart_forumbit['month']  = intval(($phpkd_vbart_forumbit['result'] % 31536000) / 2592000) . " " . $vbphrase['phpkd_vbart_month'];
+					$phpkd_vbart_forumbit['week']   = intval((($phpkd_vbart_forumbit['result'] % 31536000) % 2592000) / 604800) . " " . $vbphrase['phpkd_vbart_week'];
+					$phpkd_vbart_forumbit['day']    = intval(((($phpkd_vbart_forumbit['result'] % 31536000) % 2592000) % 604800) / 86400) . " " . $vbphrase['phpkd_vbart_day'];
+					$phpkd_vbart_forumbit['hour']   = intval((((($phpkd_vbart_forumbit['result'] % 31536000) % 2592000) % 604800) % 86400) / 3600) . " " . $vbphrase['phpkd_vbart_hour'];
+					$phpkd_vbart_forumbit['minute'] = intval(((((($phpkd_vbart_forumbit['result'] % 31536000) % 2592000) % 604800) % 86400) % 3600) / 60) . " " . $vbphrase['phpkd_vbart_minute'];
+					$phpkd_vbart_forumbit['second'] = intval(((((($phpkd_vbart_forumbit['result'] % 31536000) % 2592000) % 604800) % 86400) % 3600) % 60) . " " . $vbphrase['phpkd_vbart_second'];
+					$phpkd_vbart_forumbit['phrase'] = construct_phrase($vbphrase['phpkd_vbart_display_fdfr_year'], $phpkd_vbart_forumbit['year'], $phpkd_vbart_forumbit['month'], $phpkd_vbart_forumbit['week'], $phpkd_vbart_forumbit['day'], $phpkd_vbart_forumbit['hour'], $phpkd_vbart_forumbit['minute'], $phpkd_vbart_forumbit['second']);
+				}
+
+
+				// vBulletin 3.8.x/4.0.x Compatibility!
+				if (substr(SIMPLE_VERSION, 0, 1) >= 4)
+				{
+					$templater = vB_Template::create('phpkd_vbart_40x_display_fdhr');
+					$templater->register('phpkd_vbart_forumbit', $phpkd_vbart_forumbit);
+					$template_hook['forumdisplay_above_threadlist'] .= $templater->render();
+				}
+				else
+				{
+					eval('$phpkd_vbart_template = "' . fetch_template('phpkd_vbart_38x_display_fdhr') . '";');
+					$vbulletin->templatecache['FORUMDISPLAY'] = str_replace('<!-- show threads -->', '<!-- show threads --> $phpkd_vbart_template', $vbulletin->templatecache['FORUMDISPLAY']);
+				}
+			}
+		}
+	}
+}]]></phpcode>
+		</plugin>
+		<plugin active="1" executionorder="5">
+			<title><![CDATA[PHPKD - Average Response Time [ Forumhome ]]]></title>
+			<hookname>forumhome_complete</hookname>
+			<phpcode><![CDATA[if ($show['phpkd_vbart_active'] AND $vbulletin->options['phpkd_vbart_display_fhst'] AND $phpkd_vbart_total['count'])
+{
+	if ($vbulletin->options['phpkd_vbart_mode'])
+	{
+		sort($phpkd_vbart_total['array'], SORT_NUMERIC);
+
+		if (($phpkd_vbart_total['count'] % 2) == 0)
+		{
+			// EVEN
+			$phpkd_vbart_total['result'] = (($phpkd_vbart_total['array'][floor($phpkd_vbart_total['count'] / 2) - 1] + $phpkd_vbart_total['array'][floor($phpkd_vbart_total['count'] / 2)]) / 2);
+		}
+		else
+		{
+			// ODD
+			$phpkd_vbart_total['result'] = $phpkd_vbart_total['array'][floor($phpkd_vbart_total['count'] / 2)];
+		}
+	}
+	else
+	{
+		$phpkd_vbart_total['result'] = (@array_sum($phpkd_vbart_total['array']) / $phpkd_vbart_total['count']);
+	}
+
+
+	if ($phpkd_vbart_total['result'])
+	{
+		$phpkd_vbart_forumbit = array();
+		if ($phpkd_vbart_total['result'] < 60)
+		{
+			$phpkd_vbart_forumbit['second'] = intval($phpkd_vbart_total['result']) . " " . $vbphrase['phpkd_vbart_second'];
+			$phpkd_vbart_forumbit['phrase'] = construct_phrase($vbphrase['phpkd_vbart_display_fdfr_second'], $phpkd_vbart_forumbit['second']);
+		}
+		else if ($phpkd_vbart_total['result'] < 3600)
+		{
+			$phpkd_vbart_forumbit['minute'] = intval($phpkd_vbart_total['result'] / 60) . " " . $vbphrase['phpkd_vbart_minute'];
+			$phpkd_vbart_forumbit['second'] = intval($phpkd_vbart_total['result'] % 60) . " " . $vbphrase['phpkd_vbart_second'];
+			$phpkd_vbart_forumbit['phrase'] = construct_phrase($vbphrase['phpkd_vbart_display_fdfr_minute'], $phpkd_vbart_forumbit['minute'], $phpkd_vbart_forumbit['second']);
+		}
+		else if ($phpkd_vbart_total['result'] < 86400)
+		{
+			$phpkd_vbart_forumbit['hour']   = intval($phpkd_vbart_total['result'] / 3600) . " " . $vbphrase['phpkd_vbart_hour'];
+			$phpkd_vbart_forumbit['minute'] = intval(($phpkd_vbart_total['result'] % 3600) / 60) . " " . $vbphrase['phpkd_vbart_minute'];
+			$phpkd_vbart_forumbit['second'] = intval(($phpkd_vbart_total['result'] % 3600) % 60) . " " . $vbphrase['phpkd_vbart_second'];
+			$phpkd_vbart_forumbit['phrase'] = construct_phrase($vbphrase['phpkd_vbart_display_fdfr_hour'], $phpkd_vbart_forumbit['hour'], $phpkd_vbart_forumbit['minute'], $phpkd_vbart_forumbit['second']);
+		}
+		else if ($phpkd_vbart_total['result'] < 604800)
+		{
+			$phpkd_vbart_forumbit['day']    = intval($phpkd_vbart_total['result'] / 86400) . " " . $vbphrase['phpkd_vbart_day'];
+			$phpkd_vbart_forumbit['hour']   = intval(($phpkd_vbart_total['result'] % 86400) / 3600) . " " . $vbphrase['phpkd_vbart_hour'];
+			$phpkd_vbart_forumbit['minute'] = intval((($phpkd_vbart_total['result'] % 86400) % 3600) / 60) . " " . $vbphrase['phpkd_vbart_minute'];
+			$phpkd_vbart_forumbit['second'] = intval((($phpkd_vbart_total['result'] % 86400) % 3600) % 60) . " " . $vbphrase['phpkd_vbart_second'];
+			$phpkd_vbart_forumbit['phrase'] = construct_phrase($vbphrase['phpkd_vbart_display_fdfr_day'], $phpkd_vbart_forumbit['day'], $phpkd_vbart_forumbit['hour'], $phpkd_vbart_forumbit['minute'], $phpkd_vbart_forumbit['second']);
+		}
+		else if ($phpkd_vbart_total['result'] < 2592000)
+		{
+			$phpkd_vbart_forumbit['week']   = intval($phpkd_vbart_total['result'] / 604800) . " " . $vbphrase['phpkd_vbart_week'];
+			$phpkd_vbart_forumbit['day']    = intval(($phpkd_vbart_total['result'] % 604800) / 86400) . " " . $vbphrase['phpkd_vbart_day'];
+			$phpkd_vbart_forumbit['hour']   = intval((($phpkd_vbart_total['result'] % 604800) % 86400) / 3600) . " " . $vbphrase['phpkd_vbart_hour'];
+			$phpkd_vbart_forumbit['minute'] = intval(((($phpkd_vbart_total['result'] % 604800) % 86400) % 3600) / 60) . " " . $vbphrase['phpkd_vbart_minute'];
+			$phpkd_vbart_forumbit['second'] = intval(((($phpkd_vbart_total['result'] % 604800) % 86400) % 3600) % 60) . " " . $vbphrase['phpkd_vbart_second'];
+			$phpkd_vbart_forumbit['phrase'] = construct_phrase($vbphrase['phpkd_vbart_display_fdfr_week'], $phpkd_vbart_forumbit['week'], $phpkd_vbart_forumbit['day'], $phpkd_vbart_forumbit['hour'], $phpkd_vbart_forumbit['minute'], $phpkd_vbart_forumbit['second']);
+		}
+		else if ($phpkd_vbart_total['result'] < 31536000)
+		{
+			$phpkd_vbart_forumbit['month']  = intval($phpkd_vbart_total['result'] / 2592000) . " " . $vbphrase['phpkd_vbart_month'];
+			$phpkd_vbart_forumbit['week']   = intval(($phpkd_vbart_total['result'] % 2592000) / 604800) . " " . $vbphrase['phpkd_vbart_week'];
+			$phpkd_vbart_forumbit['day']    = intval((($phpkd_vbart_total['result'] % 2592000) % 604800) / 86400) . " " . $vbphrase['phpkd_vbart_day'];
+			$phpkd_vbart_forumbit['hour']   = intval(((($phpkd_vbart_total['result'] % 2592000) % 604800) % 86400) / 3600) . " " . $vbphrase['phpkd_vbart_hour'];
+			$phpkd_vbart_forumbit['minute'] = intval((((($phpkd_vbart_total['result'] % 2592000) % 604800) % 86400) % 3600) / 60) . " " . $vbphrase['phpkd_vbart_minute'];
+			$phpkd_vbart_forumbit['second'] = intval((((($phpkd_vbart_total['result'] % 2592000) % 604800) % 86400) % 3600) % 60) . " " . $vbphrase['phpkd_vbart_second'];
+			$phpkd_vbart_forumbit['phrase'] = construct_phrase($vbphrase['phpkd_vbart_display_fdfr_month'], $phpkd_vbart_forumbit['month'], $phpkd_vbart_forumbit['week'], $phpkd_vbart_forumbit['day'], $phpkd_vbart_forumbit['hour'], $phpkd_vbart_forumbit['minute'], $phpkd_vbart_forumbit['second']);
+		}
+		else
+		{
+			$phpkd_vbart_forumbit['year']   = intval($phpkd_vbart_total['result'] / 31536000) . " " . $vbphrase['phpkd_vbart_year'];
+			$phpkd_vbart_forumbit['month']  = intval(($phpkd_vbart_total['result'] % 31536000) / 2592000) . " " . $vbphrase['phpkd_vbart_month'];
+			$phpkd_vbart_forumbit['week']   = intval((($phpkd_vbart_total['result'] % 31536000) % 2592000) / 604800) . " " . $vbphrase['phpkd_vbart_week'];
+			$phpkd_vbart_forumbit['day']    = intval(((($phpkd_vbart_total['result'] % 31536000) % 2592000) % 604800) / 86400) . " " . $vbphrase['phpkd_vbart_day'];
+			$phpkd_vbart_forumbit['hour']   = intval((((($phpkd_vbart_total['result'] % 31536000) % 2592000) % 604800) % 86400) / 3600) . " " . $vbphrase['phpkd_vbart_hour'];
+			$phpkd_vbart_forumbit['minute'] = intval(((((($phpkd_vbart_total['result'] % 31536000) % 2592000) % 604800) % 86400) % 3600) / 60) . " " . $vbphrase['phpkd_vbart_minute'];
+			$phpkd_vbart_forumbit['second'] = intval(((((($phpkd_vbart_total['result'] % 31536000) % 2592000) % 604800) % 86400) % 3600) % 60) . " " . $vbphrase['phpkd_vbart_second'];
+			$phpkd_vbart_forumbit['phrase'] = construct_phrase($vbphrase['phpkd_vbart_display_fdfr_year'], $phpkd_vbart_forumbit['year'], $phpkd_vbart_forumbit['month'], $phpkd_vbart_forumbit['week'], $phpkd_vbart_forumbit['day'], $phpkd_vbart_forumbit['hour'], $phpkd_vbart_forumbit['minute'], $phpkd_vbart_forumbit['second']);
+		}
+
+		// vBulletin 3.8.x/4.0.x Compatibility!
+		if (substr(SIMPLE_VERSION, 0, 1) >= 4)
+		{
+			$templater = vB_Template::create('phpkd_vbart_40x_display_fhst');
+			$templater->register('phpkd_vbart_forumbit', $phpkd_vbart_forumbit);
+			$template_hook['forumhome_wgo_stats'] .= $templater->render();
+		}
+		else
+		{
+			eval('$phpkd_vbart_template = "' . fetch_template('phpkd_vbart_38x_display_fhst') . '";');
+			$vbulletin->templatecache['FORUMHOME'] = str_replace('$vbphrase[threads]: $totalthreads,', '$phpkd_vbart_template $vbphrase[threads]: $totalthreads,', $vbulletin->templatecache['FORUMHOME']);
+		}
+	}
+}]]></phpcode>
+		</plugin>
+		<plugin active="1" executionorder="5">
+			<title><![CDATA[PHPKD - Average Response Time [ Template Groups ]]]></title>
+			<hookname>template_groups</hookname>
+			<phpcode><![CDATA[$only['phpkd_vbart_'] = $vbphrase['phpkd_vbart'];]]></phpcode>
+		</plugin>
+	</plugins>
+	<phrases>
+		<phrasetype name="Control Panel Options" fieldname="cpoption">
+			<phrase name="phpkd_vbart_inex_forums_all" date="1271311224" username="PHPKD" version="4.0.100"><![CDATA[Include All Forums]]></phrase>
+			<phrase name="phpkd_vbart_inex_forums_ex" date="1271311242" username="PHPKD" version="4.0.100"><![CDATA[Exclude Specific Forums]]></phrase>
+			<phrase name="phpkd_vbart_inex_forums_in" date="1271311234" username="PHPKD" version="4.0.100"><![CDATA[Include Specific Forums]]></phrase>
+			<phrase name="phpkd_vbart_inex_usergroups_all" date="1271311185" username="PHPKD" version="4.0.100"><![CDATA[Include All Usergroups]]></phrase>
+			<phrase name="phpkd_vbart_inex_usergroups_ex" date="1271311210" username="PHPKD" version="4.0.100"><![CDATA[Exclude Specific Usergroups]]></phrase>
+			<phrase name="phpkd_vbart_inex_usergroups_in" date="1271311202" username="PHPKD" version="4.0.100"><![CDATA[Include Specific Usergroups]]></phrase>
+			<phrase name="phpkd_vbart_inex_users_all" date="1271311143" username="PHPKD" version="4.0.100"><![CDATA[Include All Users]]></phrase>
+			<phrase name="phpkd_vbart_inex_users_ex" date="1271311169" username="PHPKD" version="4.0.100"><![CDATA[Exclude Specific Users]]></phrase>
+			<phrase name="phpkd_vbart_inex_users_in" date="1271311158" username="PHPKD" version="4.0.100"><![CDATA[Include Specific Users]]></phrase>
+			<phrase name="phpkd_vbart_mode_mean" date="1271464210" username="PHPKD" version="4.0.100"><![CDATA[Mean]]></phrase>
+			<phrase name="phpkd_vbart_mode_median" date="1271464222" username="PHPKD" version="4.0.100"><![CDATA[Median]]></phrase>
+			<phrase name="phpkd_vbart_select_styles" date="1271484734" username="PHPKD" version="4.0.100"><![CDATA[Select Style(s)]]></phrase>
+		</phrasetype>
+		<phrasetype name="GLOBAL" fieldname="global">
+			<phrase name="phpkd_vbart_day" date="1271317267" username="PHPKD" version="4.0.100"><![CDATA[day]]></phrase>
+			<phrase name="phpkd_vbart_display_fdfr_day" date="1271318407" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1}, {2}, {3} : {4} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fdfr_hour" date="1271318429" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1}, {2} : {3} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fdfr_minute" date="1271318487" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1} : {2} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fdfr_month" date="1271318325" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1}, {2}, {3}, {4}, {5} : {6} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fdfr_second" date="1271318501" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fdfr_week" date="1271318350" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1}, {2}, {3}, {4} : {5} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fdfr_year" date="1271318235" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1}, {2}, {3}, {4}, {5}, {6} : {7} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fdhr_day" date="1271318395" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1}, {2}, {3} : {4} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fdhr_hour" date="1271318432" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1}, {2} : {3} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fdhr_minute" date="1271318483" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1} : {2} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fdhr_month" date="1271318315" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1}, {2}, {3}, {4}, {5} : {6} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fdhr_second" date="1271318504" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fdhr_week" date="1271318353" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1}, {2}, {3}, {4} : {5} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fdhr_year" date="1271318230" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1}, {2}, {3}, {4}, {5}, {6} : {7} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fhfb_day" date="1271318385" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1}, {2}, {3} : {4} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fhfb_hour" date="1271318437" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1}, {2} : {3} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fhfb_minute" date="1271318476" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1} : {2} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fhfb_month" date="1271318306" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1}, {2}, {3}, {4}, {5} : {6} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fhfb_second" date="1271318509" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fhfb_week" date="1271318358" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1}, {2}, {3}, {4} : {5} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fhfb_year" date="1271318240" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1}, {2}, {3}, {4}, {5}, {6} : {7} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fhst_day" date="1271318380" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1}, {2}, {3} : {4} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fhst_hour" date="1271318442" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1}, {2} : {3} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fhst_minute" date="1271318471" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1} : {2} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fhst_month" date="1271318298" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1}, {2}, {3}, {4}, {5} : {6} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fhst_second" date="1271318514" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fhst_week" date="1271318363" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1}, {2}, {3}, {4} : {5} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_display_fhst_year" date="1271318247" username="PHPKD" version="4.0.100"><![CDATA[On average it takes about {1}, {2}, {3}, {4}, {5}, {6} : {7} for your post to get response from our members or staff.]]></phrase>
+			<phrase name="phpkd_vbart_hour" date="1271317274" username="PHPKD" version="4.0.100"><![CDATA[hour]]></phrase>
+			<phrase name="phpkd_vbart_minute" date="1271317279" username="PHPKD" version="4.0.100"><![CDATA[minute]]></phrase>
+			<phrase name="phpkd_vbart_note" date="1271317441" username="PHPKD" version="4.0.100"><![CDATA[Please note this is NOT a guarantee that every post will be responded to in this time frame. It's just an average, depending on your question a response or answer may take longer or shorter period.]]></phrase>
+			<phrase name="phpkd_vbart_second" date="1271317287" username="PHPKD" version="4.0.100"><![CDATA[second]]></phrase>
+			<phrase name="phpkd_vbart_week" date="1271317296" username="PHPKD" version="4.0.100"><![CDATA[week]]></phrase>
+			<phrase name="phpkd_vbart_year" date="1271317304" username="PHPKD" version="4.0.100"><![CDATA[year]]></phrase>
+		</phrasetype>
+		<phrasetype name="Style Tools" fieldname="style">
+			<phrase name="phpkd_vbart" date="1271484335" username="PHPKD" version="4.0.100"><![CDATA[PHPKD - Average Response Time]]></phrase>
+		</phrasetype>
+		<phrasetype name="vBulletin Settings" fieldname="vbsettings">
+			<phrase name="setting_phpkd_vbart_active_desc" date="1271308886" username="PHPKD" version="4.0.100"><![CDATA[Choose whether the product "PHPKD - Average Response Time" is active or not (Global On/Off Switch).]]></phrase>
+			<phrase name="setting_phpkd_vbart_active_title" date="1271308886" username="PHPKD" version="4.0.100"><![CDATA[Product Active]]></phrase>
+			<phrase name="setting_phpkd_vbart_display_fdhr_desc" date="1271317205" username="PHPKD" version="4.0.100"><![CDATA[You can choose whether or not to display "Average Response Time" within forumdisplay up there above thread list.]]></phrase>
+			<phrase name="setting_phpkd_vbart_display_fdhr_title" date="1271317205" username="PHPKD" version="4.0.100"><![CDATA[Display in: Forumdisplay Up]]></phrase>
+			<phrase name="setting_phpkd_vbart_display_fhfb_desc" date="1271317079" username="PHPKD" version="4.0.100"><![CDATA[You can choose whether or not to display "Average Response Time" in forumhome with each forum's info.]]></phrase>
+			<phrase name="setting_phpkd_vbart_display_fhfb_title" date="1271317079" username="PHPKD" version="4.0.100"><![CDATA[Display in: Forumhome Forumbit]]></phrase>
+			<phrase name="setting_phpkd_vbart_display_fhst_desc" date="1271317103" username="PHPKD" version="4.0.100"><![CDATA[You can choose whether or not to display total "Average Response Time" in forumhome stats.]]></phrase>
+			<phrase name="setting_phpkd_vbart_display_fhst_title" date="1271317103" username="PHPKD" version="4.0.100"><![CDATA[Display in: Forumhome Stats]]></phrase>
+			<phrase name="setting_phpkd_vbart_inex_forums_desc" date="1271310667" username="PHPKD" version="4.0.100"><![CDATA[You can specify certain forums to have this product's effect, or to exclude others from being participated at all.<br />
+You've three options to choose from:<br />
+<ul>
+	<li><strong>Include All Forums</strong></li>
+	<li><strong>Include Specific Forums</strong></li>
+	<li><strong>Exclude Specific Forums</strong></li>
+</ul>
+Select "Include All Forums" for the product to take effect on all forums (<strong>DEFAULT</strong>), or select "Include Specific Forums" for the product to take effect on certain forums only -defined in the following setting-, or select "Exclude Specific Forums" for the product <strong>NOT</strong> to take effect on certain forums -defined in the following setting-.]]></phrase>
+			<phrase name="setting_phpkd_vbart_inex_forums_ids_desc" date="1271310750" username="PHPKD" version="4.0.100"><![CDATA[If you've chosen "Include Specific Forums" OR "Exclude Specific Forums" from the above setting, then you've to enter those specified forum IDs here in this setting's field. Please enter forum IDs separated with commas.]]></phrase>
+			<phrase name="setting_phpkd_vbart_inex_forums_ids_title" date="1271310750" username="PHPKD" version="4.0.100"><![CDATA[Included/Excluded Forums]]></phrase>
+			<phrase name="setting_phpkd_vbart_inex_forums_title" date="1271310667" username="PHPKD" version="4.0.100"><![CDATA[Include/Exclude Forums]]></phrase>
+			<phrase name="setting_phpkd_vbart_inex_usergroups_desc" date="1271309690" username="PHPKD" version="4.0.100"><![CDATA[You can specify certain usergroups to have this product's effect, or to exclude others from being participated at all.<br />
+You've three options to choose from:<br />
+<ul>
+	<li><strong>Include All Usergroups</strong></li>
+	<li><strong>Include Specific Usergroups</strong></li>
+	<li><strong>Exclude Specific Usergroups</strong></li>
+</ul>
+Select "Include All Usergroups" for the product to take effect on all usergroups (<strong>DEFAULT</strong>), or select "Include Specific Usergroups" for the product to take effect on certain usergroups only -defined in the following setting-, or select "Exclude Specific Usergroups" for the product <strong>NOT</strong> to take effect on certain usergroups -defined in the following setting-.]]></phrase>
+			<phrase name="setting_phpkd_vbart_inex_usergroups_ids_desc" date="1271309806" username="PHPKD" version="4.0.100"><![CDATA[If you've chosen "Include Specific Usergroups" OR "Exclude Specific Usergroups" from the above setting, then you've to enter those specified usergroup IDs here in this setting's field. Please enter usergroup IDs separated with commas.]]></phrase>
+			<phrase name="setting_phpkd_vbart_inex_usergroups_ids_title" date="1271309806" username="PHPKD" version="4.0.100"><![CDATA[Included/Excluded Usergroups]]></phrase>
+			<phrase name="setting_phpkd_vbart_inex_usergroups_title" date="1271309690" username="PHPKD" version="4.0.100"><![CDATA[Include/Exclude Usergroups]]></phrase>
+			<phrase name="setting_phpkd_vbart_inex_users_desc" date="1271309417" username="PHPKD" version="4.0.100"><![CDATA[You can specify certain users to have this product's effect, or to exclude others from being participated at all.<br />
+You've three options to choose from:<br />
+<ul>
+	<li><strong>Include All Users</strong></li>
+	<li><strong>Include Specific Users</strong></li>
+	<li><strong>Exclude Specific Users</strong></li>
+</ul>
+Select "Include All Users" for the product to take effect on all users (<strong>DEFAULT</strong>), or select "Include Specific Users" for the product to take effect on certain users only -defined in the following setting-, or select "Exclude Specific Users" for the product <strong>NOT</strong> to take effect on certain users -defined in the following setting-.]]></phrase>
+			<phrase name="setting_phpkd_vbart_inex_users_ids_desc" date="1271309532" username="PHPKD" version="4.0.100"><![CDATA[If you've chosen "Include Specific Users" OR "Exclude Specific Users" from the above setting, then you've to enter those specified user IDs here in this setting's field. Please enter user IDs separated with commas.]]></phrase>
+			<phrase name="setting_phpkd_vbart_inex_users_ids_title" date="1271309532" username="PHPKD" version="4.0.100"><![CDATA[Included/Excluded Users]]></phrase>
+			<phrase name="setting_phpkd_vbart_inex_users_title" date="1271309417" username="PHPKD" version="4.0.100"><![CDATA[Include/Exclude Users]]></phrase>
+			<phrase name="setting_phpkd_vbart_limit_desc" date="1271315357" username="PHPKD" version="4.0.100"><![CDATA[How many threads do you wish to check & build measurements upon? Enter positive integer value or '0' for all.]]></phrase>
+			<phrase name="setting_phpkd_vbart_limit_title" date="1271315357" username="PHPKD" version="4.0.100"><![CDATA[Checked threads limit]]></phrase>
+			<phrase name="setting_phpkd_vbart_mode_desc" date="1271464231" username="PHPKD" version="4.0.100"><![CDATA[Which mode do you wish to use in calculating results?<br />
+You've two available statistical options:<br />
+<ul>
+	<li><strong>Mean (normal average)</strong> <a href='http://en.wikipedia.org/wiki/Arithmetic_mean' target='_blank'>read more&hellip;</a></li>
+	<li><strong>Median (middle value)</strong> <a href='http://en.wikipedia.org/wiki/Median' target='_blank'>read more&hellip;</a></li>
+</ul>]]></phrase>
+			<phrase name="setting_phpkd_vbart_mode_title" date="1271464231" username="PHPKD" version="4.0.100"><![CDATA[Arithmetic mode]]></phrase>
+			<phrase name="setting_phpkd_vbart_styleids_desc" date="1271310865" username="PHPKD" version="4.0.100"><![CDATA[You can enable this product on certain styles only & keep it disabled for others, just select the styles you wish this product to take affect on. For multiple selecting press 'CTRL' & keep holding it while selecting.]]></phrase>
+			<phrase name="setting_phpkd_vbart_styleids_title" date="1271310865" username="PHPKD" version="4.0.100"><![CDATA[Affected Styles]]></phrase>
+			<phrase name="settinggroup_phpkd_vbart" date="1271308743" username="PHPKD" version="4.0.100"><![CDATA[PHPKD - Average Response Time]]></phrase>
+		</phrasetype>
+	</phrases>
+	<options>
+		<settinggroup name="phpkd_vbart" displayorder="40130">
+			<setting varname="phpkd_vbart_active" displayorder="10">
+				<datatype>boolean</datatype>
+				<optioncode>yesno</optioncode>
+				<defaultvalue>1</defaultvalue>
+			</setting>
+			<setting varname="phpkd_vbart_mode" displayorder="15">
+				<datatype>integer</datatype>
+				<optioncode>radio:piped
+0|phpkd_vbart_mode_mean
+1|phpkd_vbart_mode_median</optioncode>
+				<defaultvalue>0</defaultvalue>
+			</setting>
+			<setting varname="phpkd_vbart_inex_users" displayorder="20">
+				<datatype>integer</datatype>
+				<optioncode>radio:piped
+0|phpkd_vbart_inex_users_all
+1|phpkd_vbart_inex_users_in
+2|phpkd_vbart_inex_users_ex</optioncode>
+				<defaultvalue>0</defaultvalue>
+			</setting>
+			<setting varname="phpkd_vbart_inex_users_ids" displayorder="30">
+				<datatype>free</datatype>
+			</setting>
+			<setting varname="phpkd_vbart_inex_usergroups" displayorder="40">
+				<datatype>integer</datatype>
+				<optioncode>radio:piped
+0|phpkd_vbart_inex_usergroups_all
+1|phpkd_vbart_inex_usergroups_in
+2|phpkd_vbart_inex_usergroups_ex</optioncode>
+				<defaultvalue>0</defaultvalue>
+			</setting>
+			<setting varname="phpkd_vbart_inex_usergroups_ids" displayorder="50">
+				<datatype>free</datatype>
+			</setting>
+			<setting varname="phpkd_vbart_inex_forums" displayorder="60">
+				<datatype>integer</datatype>
+				<optioncode>radio:piped
+0|phpkd_vbart_inex_forums_all
+1|phpkd_vbart_inex_forums_in
+2|phpkd_vbart_inex_forums_ex</optioncode>
+				<defaultvalue>0</defaultvalue>
+			</setting>
+			<setting varname="phpkd_vbart_inex_forums_ids" displayorder="70">
+				<datatype>free</datatype>
+			</setting>
+			<setting varname="phpkd_vbart_styleids" displayorder="80">
+				<datatype>free</datatype>
+				<optioncode>phpkd_vbart_styles</optioncode>
+			</setting>
+			<setting varname="phpkd_vbart_limit" displayorder="90">
+				<datatype>integer</datatype>
+				<defaultvalue>0</defaultvalue>
+			</setting>
+			<setting varname="phpkd_vbart_display_fhfb" displayorder="100">
+				<datatype>boolean</datatype>
+				<optioncode>yesno</optioncode>
+				<defaultvalue>1</defaultvalue>
+			</setting>
+			<setting varname="phpkd_vbart_display_fhst" displayorder="110">
+				<datatype>boolean</datatype>
+				<optioncode>yesno</optioncode>
+				<defaultvalue>1</defaultvalue>
+			</setting>
+			<setting varname="phpkd_vbart_display_fdhr" displayorder="120">
+				<datatype>boolean</datatype>
+				<optioncode>yesno</optioncode>
+				<defaultvalue>1</defaultvalue>
+			</setting>
+		</settinggroup>
+	</options>
+	<helptopics>
+	</helptopics>
+	<cronentries>
+	</cronentries>
+	<faqentries>
+	</faqentries>
+</product>
