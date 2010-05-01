@@ -227,6 +227,7 @@ $vbulletin->db->show_errors();]]></uninstallcode>
 			<hookname>cache_templates</hookname>
 			<phpcode><![CDATA[if ($vbulletin->options['phpkd_vbart_active'])
 {
+	global $phpkd_vbart_inex_forums_ids;
 	$show['phpkd_vbart_active']      = true;
 	$phpkd_vbart_inex_users_ids      = @explode(',', trim($vbulletin->options['phpkd_vbart_inex_users_ids']));
 	$phpkd_vbart_inex_usergroups_ids = @explode(',', trim($vbulletin->options['phpkd_vbart_inex_usergroups_ids']));
@@ -263,23 +264,6 @@ $vbulletin->db->show_errors();]]></uninstallcode>
 			if (is_array($phpkd_vbart_inex_usergroups_ids) AND !empty($phpkd_vbart_inex_usergroups_ids) AND in_array($vbulletin->userinfo['usergroupid'], $phpkd_vbart_inex_usergroups_ids))
 			{
 				$show['phpkd_vbart_active']  = false;
-			}
-			break;
-	}
-
-
-	switch ($vbulletin->options['phpkd_vbart_inex_forums'])
-	{
-		case 1:
-			if (is_array($phpkd_vbart_inex_forums_ids) AND !empty($phpkd_vbart_inex_forums_ids) AND !in_array($foruminfo['forumid'], $phpkd_vbart_inex_forums_ids))
-			{
-				$show['phpkd_vbart_active']  = FALSE;
-			}
-			break;
-		case 2:
-			if (is_array($phpkd_vbart_inex_forums_ids) AND !empty($phpkd_vbart_inex_forums_ids) AND in_array($foruminfo['forumid'], $phpkd_vbart_inex_forums_ids))
-			{
-				$show['phpkd_vbart_active']  = FALSE;
 			}
 			break;
 	}
@@ -366,8 +350,12 @@ $vbulletin->db->show_errors();]]></uninstallcode>
 		vB_Template::preRegister("forumhome_forumbit_level$depth$tempext", array('phpkd_vbart_template' => ''));
 	}
 
+	if (!isset($phpkd_vbart_inex_forums_ids))
+	{
+		global $phpkd_vbart_inex_forums_ids;
+	}
 
-	if ($forum['replycount'] > $forum['threadcount'])
+	if ($counters["$forumid"]['replycount'] > $counters["$forumid"]['threadcount'] AND (!$vbulletin->options['phpkd_vbart_inex_forums'] OR ($vbulletin->options['phpkd_vbart_inex_forums'] == 1 AND is_array($phpkd_vbart_inex_forums_ids) AND !empty($phpkd_vbart_inex_forums_ids) AND in_array($forumid, $phpkd_vbart_inex_forums_ids)) OR ($vbulletin->options['phpkd_vbart_inex_forums'] == 2 AND is_array($phpkd_vbart_inex_forums_ids) AND !empty($phpkd_vbart_inex_forums_ids) AND !in_array($forumid, $phpkd_vbart_inex_forums_ids))))
 	{
 		$phpkd_vbart_forumbit = array();
 		$phpkd_vbart_forumbit['query'] = $vbulletin->db->query_read("
@@ -490,7 +478,7 @@ $vbulletin->db->show_errors();]]></uninstallcode>
 					$templater = vB_Template::create('phpkd_vbart_40x_display_fhfb');
 					$templater->register('phpkd_vbart_forumbit', $phpkd_vbart_forumbit);
 					vB_Template::preRegister("forumhome_forumbit_level$depth$tempext", array('phpkd_vbart_template' => $templater->render()));
-					$vbulletin->templatecache["forumhome_forumbit_level$depth$tempext"] = str_replace('\' . $forum[\'description\'] . \'', '\' . $phpkd_vbart_template . \'', $vbulletin->templatecache["forumhome_forumbit_level$depth$tempext"]);
+					$vbulletin->templatecache["forumhome_forumbit_level$depth$tempext"] = str_replace('\' . $forum[\'description\'] . \'', '\' . $forum[\'description\'] . $phpkd_vbart_template . \'', $vbulletin->templatecache["forumhome_forumbit_level$depth$tempext"]);
 					// $vbulletin->templatecache["forumhome_forumbit_level$depth$tempext"] = str_replace('<!-- phpkd_vbart -->', '\' . $phpkd_vbart_template . \'', $vbulletin->templatecache["forumhome_forumbit_level$depth$tempext"]);
 				}
 				else
